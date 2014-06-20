@@ -34,7 +34,8 @@ MODULE planet
 	REAL(KIND=8)							:: ROOT_H_Ang
 	REAL(KIND=8)							:: INIT_ENGY	! if mono-energetic, starting energy
 
-	INTEGER										:: ATMOSPHERE ! (0 = MIN SA) (1 = Mean SA) (2 = Max SA)
+	INTEGER										:: ATMOSPHERE ! Mars (0 = MIN SA) (1 = Mean SA) (2 = Max SA)
+	INTEGER										:: VENUS_ATMOSPHERE ! Venus (1 = Mean SA) (99 = OFF)
 	INTEGER										:: DO_SHA			! DO SHA tracking = 1 	
 	INTEGER										:: DO_GRAV		! Gravity transport = 1 	
 	INTEGER										:: MONO_ENGY	! Mono-energetic = 1 prob dist = 2	
@@ -74,9 +75,14 @@ MODULE planet
 	REAL(KIND=8),PARAMETER		:: HS_R_He 	= 1.40D-10
 	REAL(KIND=8),PARAMETER		:: HS_R_Ar 	= 1.88D-10
 	REAL(KIND=8),PARAMETER		:: HS_R_O 	= 1.52D-10
+	REAL(KIND=8),PARAMETER		:: HS_R_S 	= 1.80D-10
+	REAL(KIND=8),PARAMETER		:: HS_R_O2 	= 2.0D0*HS_R_O
 	REAL(KIND=8),PARAMETER		:: HS_R_H2 	= 2.40D-10
 	REAL(KIND=8),PARAMETER		:: HS_R_N2 	= 3.10D-10
+	REAL(KIND=8),PARAMETER		:: HS_R_N 	= 0.5D0*HS_R_N2
 	REAL(KIND=8),PARAMETER		:: HS_R_CO 	= 3.22D-10
+	REAL(KIND=8),PARAMETER		:: HS_R_SO 	= HS_R_S+HS_R_O
+	REAL(KIND=8),PARAMETER		:: HS_R_SO2	= HS_R_S+2.0D0*HS_R_O
 	REAL(KIND=8),PARAMETER		:: HS_R_CO2 = 4.74D-10
 
 	REAL(KIND=8),PARAMETER		:: M_H   = 1.00782503207D0
@@ -87,6 +93,11 @@ MODULE planet
   REAL(KIND=8),PARAMETER		:: M_O   = 15.99491461956D0
 	REAL(KIND=8),PARAMETER		:: M_CO2 = 44.00964D0
 	REAL(KIND=8),PARAMETER		:: M_CO	 = 28.0147D0
+	REAL(KIND=8),PARAMETER		:: M_O2  = M_O*2.0D0
+	REAL(KIND=8),PARAMETER		:: M_N   = M_N2*0.5D0 
+	REAL(KIND=8),PARAMETER		:: M_S   = 28.085D0
+	REAL(KIND=8),PARAMETER		:: M_SO  = M_S+M_O
+	REAL(KIND=8),PARAMETER		:: M_SO2 = M_S+M_O*2.0D0
 
 	REAL(KIND=8),ALLOCATABLE,DIMENSION(:)   :: H_ENA_PROB		! from tables for starting ENA position
   REAL(KIND=8),ALLOCATABLE,DIMENSION(:)   :: H_ENA_DIST
@@ -105,10 +116,11 @@ MODULE planet
 	REAL(KIND=8),ALLOCATABLE,DIMENSION(:,:)	:: My_Engy_Dist, Root_Engy_Dist
 	REAL(KIND=8),ALLOCATABLE,DIMENSION(:,:)	:: My_SHA_Engy_Dist, Root_SHA_Engy_Dist
 
-	INTEGER																	:: N_Atmos
+	INTEGER																	:: NUM_Atmos
 	REAL(KIND=8),ALLOCATABLE,DIMENSION(:)		:: Z_Atmos
 	REAL(KIND=8),ALLOCATABLE,DIMENSION(:)		:: H_Atmos, He_Atmos, O_Atmos, Ar_Atmos
 	REAL(KIND=8),ALLOCATABLE,DIMENSION(:)		:: H2_Atmos, N2_Atmos, CO_Atmos, CO2_Atmos
+	REAL(KIND=8),ALLOCATABLE,DIMENSION(:)		:: O2_Atmos, N_Atmos, S_Atmos, SO_Atmos,SO2_Atmos
 
 	INTEGER, PARAMETER											:: ENA_SH = 1 ! 1 = H ENA   4 = He ENA
 
@@ -141,31 +153,53 @@ MODULE planet
     MP = M_CO2 
 	ELSE IF ( Proj == 'CO ' ) THEN
     MP = M_CO 
+	ELSE IF ( Proj == 'N  ' ) THEN
+		MP = M_N 
 	ELSE IF ( Proj == 'H2O' ) THEN
 		MP = 2.0D0*M_H + M_O
+	ELSE IF ( Proj == 'O2 ' ) THEN
+		MP = M_O2
+	ELSE IF ( Proj == 'SO2' ) THEN
+		MP = M_SO2
+	ELSE IF ( Proj == 'SO ' ) THEN
+		MP = M_SO
+	ELSE IF ( Proj == 'S  ' ) THEN
+		MP = M_S
   ELSE
     WRITE(*,*) "Projectile ", Proj, " not known!!!!"
   END IF
 
   !!! Target
-  IF ( TRIM(Targ) == 'H' ) THEN
+  IF ( Targ == 'H' ) THEN
+		write(*,*) 'ttarg', trim(targ), '-H'
 		MT = M_H
-  ELSE IF ( TRIM(Targ) == 'H2' ) THEN
+  ELSE IF ( Targ == 'H2 ' ) THEN
 		MT = M_H2
-  ELSE IF ( TRIM(Targ) == 'N2' ) THEN
+  ELSE IF ( Targ == 'N2 ' ) THEN
 		MT = M_N2
-  ELSE IF ( TRIM(Targ) == 'Ar' ) THEN
+  ELSE IF ( Targ == 'Ar ' ) THEN
 		MT = M_Ar
-  ELSE IF ( TRIM(Targ) == 'He' ) THEN
+  ELSE IF ( Targ == 'He ' ) THEN
 		MT = M_He
-  ELSE IF ( TRIM(Targ) == 'O' ) THEN
+  ELSE IF ( Targ == 'O  ' ) THEN
 		MT = M_O
-	ELSE IF ( TRIM(Targ) == 'CO2' ) THEN
+	ELSE IF ( Targ == 'CO2' ) THEN
 		MT = M_CO2
-	ELSE IF ( TRIM(Targ) == 'CO' ) THEN
+	ELSE IF ( Targ == 'CO ' ) THEN
 		MT = M_CO
+	ELSE IF ( Targ == 'N  ' ) THEN
+		MT = M_N
+	ELSE IF ( Targ == 'S  ' ) THEN
+		MT = M_S
+	ELSE IF ( Targ == 'SO2' ) THEN
+		MT = M_SO2
+	ELSE IF ( Targ == 'SO ' ) THEN
+		MT = M_SO
+	ELSE IF ( Targ == 'O2 ' ) THEN
+		MT = M_O2
   ELSE
-    WRITE(*,*) "Target ", Targ, " not known!!!!"
+		MT = M_H
+!    WRITE(*,*) "Target -", TRIM(Targ), "- not known!!!!"
   END IF
 
 	MU = MP*MT/(MP+MT)
@@ -206,6 +240,7 @@ MODULE planet
 
 			READ(21,*) Proj	
 			READ(21,*) CM_TYPE
+			READ(21,*) VENUS_ATMOSPHERE	
 			READ(21,*) ATMOSPHERE
 			READ(21,*) E_Therm
 			READ(21,*) E_Esc
@@ -269,11 +304,14 @@ MODULE planet
 				WRITE(*,69) '####  Collision Method         : Hard Sphere ####'
 			END IF
 			IF (ATMOSPHERE .EQ. 0) THEN
-				WRITE(*,69) '####  Atmosphere Model         : Min SA      ####'
+				WRITE(*,69) '####  Mars Atmosphere Model    : Min SA      ####'
 			ELSE IF (ATMOSPHERE .EQ. 1) THEN
-				WRITE(*,69) '####  Atmosphere Model         : Mean SA     ####'
+				WRITE(*,69) '####  Mars Atmosphere Model    : Mean SA     ####'
 			ELSE IF (ATMOSPHERE .EQ. 2) THEN
-				WRITE(*,69) '####  Atmosphere Model         : Max SA      ####'
+				WRITE(*,69) '####  Mars Atmosphere Model    : Max SA      ####'
+			END IF
+			IF (VENUS_ATMOSPHERE .EQ. 1) THEN
+				WRITE(*,69) '####  Venus Atmosphere Model   : Mean SA     ####'
 			END IF
 			WRITE(*,66) '####  Escape Height [km]       : ', high/1.0D3, '    ####'
 			WRITE(*,66) '####  Escape Energy [eV]       : ', E_Esc, '    ####'
@@ -310,6 +348,7 @@ MODULE planet
 		CALL MPI_BCAST( high, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, ierr )
 		CALL MPI_BCAST( SZA, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, ierr )
 		CALL MPI_BCAST( ATMOSPHERE, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr )
+		CALL MPI_BCAST( VENUS_ATMOSPHERE, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr )
 		CALL MPI_BCAST( N_Part, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr )
 		CALL MPI_BCAST( DO_SHA, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr )
 		CALL MPI_BCAST( DO_GRAV, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr )
@@ -335,6 +374,8 @@ MODULE planet
 		CALL MPI_BCAST( WRITE_ALL_H_dE, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr )
 		CALL MPI_BCAST( WRITE_SHA_H_E, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr )
 		CALL MPI_BCAST( WRITE_SHA_H_Ux, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr )
+
+!		write(*,*) 'myid: ', myid, ' MAt: ', ATMOSPHERE, 'VAt: ', VENUS_ATMOSPHERE
 
 		!! convert SZA from deg to rad
 		SZA = SZA*PI/180.0D0
@@ -391,7 +432,7 @@ MODULE planet
 !#############################################
 !#############################################
 
-	SUBROUTINE read_mars_density
+	SUBROUTINE read_density
 		USE mpi_info
 
 		IMPLICIT NONE
@@ -408,50 +449,100 @@ MODULE planet
 			ELSE IF (ATMOSPHERE .EQ. 2) THEN
 				OPEN(31, FILE="../Tables/Krasnopolsky_Mars_Max_Density.dat", STATUS="old", ACTION="read")
 			END IF	
-			READ(31,*) N_Atmos
-			ALLOCATE(Z_Atmos(N_Atmos))
-			ALLOCATE(H_Atmos(N_Atmos))
-			ALLOCATE(H2_Atmos(N_Atmos))
-			ALLOCATE(He_Atmos(N_Atmos))
-			ALLOCATE(O_Atmos(N_Atmos))
-			ALLOCATE(Ar_Atmos(N_Atmos))
-			ALLOCATE(N2_Atmos(N_Atmos))
-			ALLOCATE(CO_Atmos(N_Atmos))
-			ALLOCATE(CO2_Atmos(N_Atmos))
-			DO i=1,N_Atmos
-				READ(31,*) Z_Atmos(i), H_Atmos(i), H2_Atmos(i), He_Atmos(i),  &
-				& O_Atmos(i), Ar_Atmos(i), N2_Atmos(i), CO_Atmos(i), CO2_Atmos(i)
-			END DO	
-			CLOSE(31)
+			IF (VENUS_ATMOSPHERE .EQ. 1) THEN
+				OPEN(31, FILE="../Tables/Krasnopolsky_Venus_Density.dat", STATUS="old", ACTION="read")
+			END IF
+			READ(31,*) NUM_Atmos
+			IF (ATMOSPHERE .NE. 99) THEN
+				ALLOCATE(Z_Atmos(NUM_Atmos))
+				ALLOCATE(H_Atmos(NUM_Atmos))
+				ALLOCATE(H2_Atmos(NUM_Atmos))
+				ALLOCATE(He_Atmos(NUM_Atmos))
+				ALLOCATE(O_Atmos(NUM_Atmos))
+				ALLOCATE(Ar_Atmos(NUM_Atmos))
+				ALLOCATE(N2_Atmos(NUM_Atmos))
+				ALLOCATE(CO_Atmos(NUM_Atmos))
+				ALLOCATE(CO2_Atmos(NUM_Atmos))
+				DO i=1,NUM_Atmos
+					READ(31,*) Z_Atmos(i), H_Atmos(i), H2_Atmos(i), He_Atmos(i),  &
+					& O_Atmos(i), Ar_Atmos(i), N2_Atmos(i), CO_Atmos(i), CO2_Atmos(i)
+				END DO	
+				CLOSE(31)
+			ELSE IF (VENUS_ATMOSPHERE .NE. 99) THEN
+				ALLOCATE(Z_Atmos(NUM_Atmos))
+				ALLOCATE(H_Atmos(NUM_Atmos))
+				ALLOCATE(CO_Atmos(NUM_Atmos))
+				ALLOCATE(CO2_Atmos(NUM_Atmos))
+				ALLOCATE(N_Atmos(NUM_Atmos))
+				ALLOCATE(O_Atmos(NUM_Atmos))
+				ALLOCATE(O2_Atmos(NUM_Atmos))
+				ALLOCATE(S_Atmos(NUM_Atmos))
+				ALLOCATE(SO_Atmos(NUM_Atmos))
+				ALLOCATE(SO2_Atmos(NUM_Atmos))
+				DO i=1,NUM_Atmos
+					READ(31,*) Z_Atmos(i), H_Atmos(i), CO_Atmos(i), CO2_Atmos(i),  &
+					& N_Atmos(i), O_Atmos(i), O2_Atmos(i), S_Atmos(i), SO_Atmos(i), SO2_Atmos(i)
+				END DO	
+				CLOSE(31)
+			END IF ! atmosphere
 		END IF ! myid = 0	
 
 		CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-		CALL MPI_BCAST(N_Atmos,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+		CALL MPI_BCAST(NUM_Atmos,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 
 		IF (myid .NE. 0) THEN
-			ALLOCATE(Z_Atmos(N_Atmos))
-			ALLOCATE(H_Atmos(N_Atmos))
-			ALLOCATE(H2_Atmos(N_Atmos))
-			ALLOCATE(He_Atmos(N_Atmos))
-			ALLOCATE(O_Atmos(N_Atmos))
-			ALLOCATE(Ar_Atmos(N_Atmos))
-			ALLOCATE(N2_Atmos(N_Atmos))
-			ALLOCATE(CO_Atmos(N_Atmos))
-			ALLOCATE(CO2_Atmos(N_Atmos))
-		END IF
-			
-		CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-		CALL MPI_BCAST(Z_Atmos,N_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-		CALL MPI_BCAST(H_Atmos,N_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-		CALL MPI_BCAST(H2_Atmos,N_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-		CALL MPI_BCAST(He_Atmos,N_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-		CALL MPI_BCAST(O_Atmos,N_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-		CALL MPI_BCAST(Ar_Atmos,N_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-		CALL MPI_BCAST(N2_Atmos,N_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-		CALL MPI_BCAST(CO_Atmos,N_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-		CALL MPI_BCAST(CO2_Atmos,N_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			IF (ATMOSPHERE .NE. 99) THEN
+				ALLOCATE(Z_Atmos(NUM_Atmos))
+				ALLOCATE(H_Atmos(NUM_Atmos))
+				ALLOCATE(H2_Atmos(NUM_Atmos))
+				ALLOCATE(He_Atmos(NUM_Atmos))
+				ALLOCATE(O_Atmos(NUM_Atmos))
+				ALLOCATE(Ar_Atmos(NUM_Atmos))
+				ALLOCATE(N2_Atmos(NUM_Atmos))
+				ALLOCATE(CO_Atmos(NUM_Atmos))
+				ALLOCATE(CO2_Atmos(NUM_Atmos))
+			ELSE IF (VENUS_ATMOSPHERE .NE. 99) THEN
+				ALLOCATE(Z_Atmos(NUM_Atmos))
+				ALLOCATE(H_Atmos(NUM_Atmos))
+				ALLOCATE(CO_Atmos(NUM_Atmos))
+				ALLOCATE(CO2_Atmos(NUM_Atmos))
+				ALLOCATE(N_Atmos(NUM_Atmos))
+				ALLOCATE(O_Atmos(NUM_Atmos))
+				ALLOCATE(O2_Atmos(NUM_Atmos))
+				ALLOCATE(S_Atmos(NUM_Atmos))
+				ALLOCATE(SO_Atmos(NUM_Atmos))
+				ALLOCATE(SO2_Atmos(NUM_Atmos))
+			END IF ! atmosphere
+		END IF ! myid
 
-	END SUBROUTINE read_mars_density
+		CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+	
+		IF (ATMOSPHERE .NE. 99) THEN	
+			CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+			CALL MPI_BCAST(Z_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(H_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(H2_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(He_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(O_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(Ar_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(N2_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(CO_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(CO2_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+		ELSE IF (VENUS_ATMOSPHERE .NE. 99) THEN	
+			CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+			CALL MPI_BCAST(Z_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(H_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(CO_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(CO2_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(N_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(O_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(O2_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(S_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(SO_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+			CALL MPI_BCAST(SO2_Atmos,NUM_Atmos,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+		END IF
+
+	END SUBROUTINE read_density
 
 !#############################################
 !#############################################
@@ -467,8 +558,114 @@ MODULE planet
 			DEALLOCATE(N2_Atmos)
 			DEALLOCATE(CO_Atmos)
 			DEALLOCATE(CO2_Atmos)
-
+	
 	END SUBROUTINE clean_mars_density
+
+!#############################################
+!#############################################
+
+	SUBROUTINE clean_venus_density
+
+			DEALLOCATE(H_Atmos)
+			DEALLOCATE(CO_Atmos)
+			DEALLOCATE(CO2_Atmos)
+			DEALLOCATE(N_Atmos)
+			DEALLOCATE(O_Atmos)
+			DEALLOCATE(O2_Atmos)
+			DEALLOCATE(S_Atmos)
+			DEALLOCATE(SO_Atmos)
+			DEALLOCATE(SO2_Atmos)
+
+	END SUBROUTINE clean_venus_density
+
+!#############################################
+!#############################################
+
+	SUBROUTINE venus_table_density(targ, h, den)
+		
+		Implicit None
+
+	  !! Inputs 
+    CHARACTER(LEN=3)  :: targ     ! target atom/molecule
+    REAL(KIND=8)      :: h        ! [m] 
+
+    !! Outputs
+    REAL(KIND=8)      :: den      ! [1/m^3]
+
+		!! Internal
+		REAL(KIND=8)			:: h_km, x1, x2, y1, y2, m, y0, n
+		REAL(KIND=8)			:: f_den(NUM_Atmos)
+		INTEGER						:: t1, t2, i, j, NOW
+
+		h_km = h/1.0D3
+
+		IF (TRIM(targ) .EQ. 'H') THEN
+			f_den = H_Atmos
+		ELSE IF (TRIM(targ) .EQ. 'N') THEN
+			f_den = N_Atmos
+		ELSE IF (TRIM(targ) .EQ. 'O') THEN
+			f_den = O_Atmos
+		ELSE IF (TRIM(targ) .EQ. 'O2') THEN
+			f_den = O2_Atmos
+		ELSE IF (TRIM(targ) .EQ. 'S') THEN
+			f_den = S_Atmos
+		ELSE IF (TRIM(targ) .EQ. 'SO') THEN
+			f_den = SO_Atmos
+		ELSE IF (TRIM(targ) .EQ. 'SO2') THEN
+			f_den = SO2_Atmos
+		ELSE IF (TRIM(targ) .EQ. 'CO') THEN
+			f_den = CO_Atmos
+		ELSE IF (TRIM(targ) .EQ. 'CO2') THEN
+			f_den = CO2_Atmos
+		ELSE
+			WRITE(*,*) 'Atmosphere species ', targ, ' not in density file'
+		END IF
+
+		IF ( (h_km .GE. Z_Atmos(1)) .AND. (h_km .LE. Z_Atmos(NUM_Atmos)) ) THEN
+			! inside file altitudes
+			NOW = 0
+			j   = 1
+			DO WHILE (NOW .EQ. 0)	
+				j = j + 1
+				IF ( (h_km .LT. Z_Atmos(j)) .OR. (j .EQ. NUM_Atmos) ) NOW = 1
+			END DO
+			t1 = j-1
+			t2 = j
+			x1 = Z_Atmos(t1)
+			x2 = Z_Atmos(t2)
+			y1 = LOG(f_den(t1))	
+			y2 = LOG(f_den(t2))	
+			m  = (y2-y1)/(x2-x1)
+			y0 = y2 - m*x2
+			n  = EXP(m*h_km + y0)
+		ELSE ! outside file altitudes
+			IF ( h_km .LT. Z_Atmos(1) ) THEN
+				t1 = 1
+				t2 = 2
+				x1 = Z_Atmos(t1)	
+				x2 = Z_Atmos(t2)	
+				y1 = LOG(f_den(t1))
+				y2 = LOG(f_den(t2))
+				m  = (y2-y1)/(x2-x1)
+				y0 = y2 - m*x2
+				n  = EXP(m*h_km + y0)
+			ELSE
+				t1 = NUM_Atmos-1
+				t2 = NUM_Atmos
+				x1 = Z_Atmos(t1)	
+				x2 = Z_Atmos(t2)	
+				y1 = LOG(f_den(t1))
+				y2 = LOG(f_den(t2))
+				m  = (y2-y1)/(x2-x1)
+				y0 = y2 - m*x2
+				n  = EXP(m*h_km + y0)
+			END IF
+		END IF
+
+		den = n*1e6			! convert from 1/cm^3 -> 1/m^3
+
+			
+	END SUBROUTINE venus_table_density
 
 !#############################################
 !#############################################
@@ -486,7 +683,7 @@ MODULE planet
 
 		!! Internal
 		REAL(KIND=8)			:: h_km, x1, x2, y1, y2, m, y0, n
-		REAL(KIND=8)			:: f_den(N_Atmos)
+		REAL(KIND=8)			:: f_den(NUM_Atmos)
 		INTEGER						:: t1, t2, i, j, NOW
 
 		h_km = h/1.0D3
@@ -511,13 +708,13 @@ MODULE planet
 			WRITE(*,*) 'Atmosphere species ', targ, ' not in density file'
 		END IF
 
-		IF ( (h_km .GE. Z_Atmos(1)) .AND. (h_km .LE. Z_Atmos(N_Atmos)) ) THEN
+		IF ( (h_km .GE. Z_Atmos(1)) .AND. (h_km .LE. Z_Atmos(NUM_Atmos)) ) THEN
 			! inside file altitudes
 			NOW = 0
 			j   = 1
 			DO WHILE (NOW .EQ. 0)	
 				j = j + 1
-				IF ( (h_km .LT. Z_Atmos(j)) .OR. (j .EQ. N_Atmos) ) NOW = 1
+				IF ( (h_km .LT. Z_Atmos(j)) .OR. (j .EQ. NUM_Atmos) ) NOW = 1
 			END DO
 			t1 = j-1
 			t2 = j
@@ -540,8 +737,8 @@ MODULE planet
 				y0 = y2 - m*x2
 				n  = EXP(m*h_km + y0)
 			ELSE
-				t1 = N_Atmos-1
-				t2 = N_Atmos
+				t1 = NUM_Atmos-1
+				t2 = NUM_Atmos
 				x1 = Z_Atmos(t1)	
 				x2 = Z_Atmos(t2)	
 				y1 = LOG(f_den(t1))
@@ -595,6 +792,46 @@ MODULE planet
 
 
 	END SUBROUTINE test_mars_table_density
+
+	!!!!!!!!!!!!!!!!!!!!
+	!!!!!!!!!!!!!!!!!!!!
+
+	SUBROUTINE test_venus_table_density
+	
+		IMPLICIT NONE
+
+		REAL(KIND=8)		:: zi, zf, dz, z
+		REAL(KIND=8)		:: H_den, N_den, O_den, O2_den, S_den, SO_den, SO2_den, CO_den, CO2_den
+		INTEGER					:: N, i
+	
+!		CALL read_mars_density
+
+		N  = 1000
+		zi = 50.0D3
+		zf = 800.0D3
+		dz = (zf-zi)/REAL(N-1)
+
+		OPEN(UNIT=61,FILE='../Data/Venus_Density_Test.dat',STATUS='NEW',ACCESS='APPEND')
+
+		DO i=1,N
+			z = zi + REAL(i-1)*dz
+			CALL venus_table_density( 'H  ', z, H_den   )
+			CALL venus_table_density( 'N  ', z, N_den   )
+			CALL venus_table_density( 'O  ', z, O_den   )
+			CALL venus_table_density( 'O2 ', z, O2_den  )
+			CALL venus_table_density( 'S  ', z, S_den   )
+			CALL venus_table_density( 'SO ', z, SO_den  )
+			CALL venus_table_density( 'SO2', z, SO2_den )
+			CALL venus_table_density( 'CO ', z, CO_den  )
+			CALL venus_table_density( 'CO2', z, CO2_den )
+			WRITE(61,*) z/1000.0D0, H_den, N_den, O_den, O2_den, S_den, CO_den, SO_den, CO2_den, SO2_den
+		END DO
+	
+		CLOSE(61)	
+
+!		CALL clean_mars_density		
+
+	END SUBROUTINE test_venus_table_density
 	
 END MODULE planet
 

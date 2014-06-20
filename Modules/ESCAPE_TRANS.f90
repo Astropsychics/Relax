@@ -424,7 +424,7 @@ SUBROUTINE all_trans
 	ATMOSPHERE = 1
 
 	! set up atmosphere density table
-	CALL read_mars_density
+	CALL read_density
 
 	IF (ALL_ON .EQ. 0) THEN
 	ENA = 'H '

@@ -185,6 +185,26 @@ SUBROUTINE lin_rand_angle(Enow,Coll_Type,SAng)
 		PD_now(:)  = F_PD_X_CO2(E_index,:)
 		Ang_now(:) = F_ANGLE(:)
 	END IF
+	IF ( (TRIM(Coll_Type) .EQ. 'HO2') .OR. (TRIM(Coll_Type) .EQ. 'HeO2') ) THEN
+		PD_now(:)  = F_PD_X_O2(E_index,:)
+		Ang_now(:) = F_ANGLE(:)
+	END IF
+	IF ( (TRIM(Coll_Type) .EQ. 'HN') .OR. (TRIM(Coll_Type) .EQ. 'HeN') ) THEN
+		PD_now(:)  = F_PD_X_N(E_index,:)
+		Ang_now(:) = F_ANGLE(:)
+	END IF
+	IF ( (TRIM(Coll_Type) .EQ. 'HS') .OR. (TRIM(Coll_Type) .EQ. 'HeS') ) THEN
+		PD_now(:)  = F_PD_X_S(E_index,:)
+		Ang_now(:) = F_ANGLE(:)
+	END IF
+	IF ( (TRIM(Coll_Type) .EQ. 'HSO') .OR. (TRIM(Coll_Type) .EQ. 'HeSO') ) THEN
+		PD_now(:)  = F_PD_X_SO(E_index,:)
+		Ang_now(:) = F_ANGLE(:)
+	END IF
+	IF ( (TRIM(Coll_Type) .EQ. 'HSO2') .OR. (TRIM(Coll_Type) .EQ. 'HeSO2') ) THEN
+		PD_now(:)  = F_PD_X_SO2(E_index,:)
+		Ang_now(:) = F_ANGLE(:)
+	END IF
 
 	!! Get max probability
 	M = PD_now(NA)
