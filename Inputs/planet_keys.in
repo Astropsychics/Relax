@@ -2,19 +2,20 @@
 %%%%%%%%%%% Planetary Relax 3D MC  %%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-He 							!! Projectile (H, He3, He4, O)
+H 							!! Projectile (H, He3, He4, O)
 QM              !! Collision Method Type QM or HS
-1               !! Atmosphere model SA (0 = min) (1 = mean) (2 = max)
+1               !! Venus Atmosphere model SA (1 = mean) (99 = OFF)
+99              !! Mars Atmosphere model SA (0 = min) (1 = mean) (2 = max) (99 = OFF)
 0.02D0     			!! Thermal Energy [eV]
 0.11D0     			!! Escape Energy [eV]
 600.0D3					!! Starting height [m]
 700.0D3 				!! Escape height from planet [m]
-80.0D0						!! Solar Zenith Angle [deg]
+0.0D0						!! Solar Zenith Angle [deg]
 50000	  		  	!! Number of MC particles
 0								!! SHA on (1) or off (0)
 0								!! Planet gravity on (1) or off (0)
 1								!! Mono-energetic (1) or SW prob distribution (2)
-65.0D0 					!! If mono-energetic, starting energy [eV]
+1000.0D0				!! If mono-energetic, starting energy [eV]
 100000					!! Max number of clicks for step-by-step simulation
 1000   					!! Click step size for data savings
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

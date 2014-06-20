@@ -175,16 +175,6 @@ SUBROUTINE planet_3d
 		OPEN(UNIT=555, FILE="../Data/planet_SHA_Production.dat",    ACCESS="APPEND")
   END IF
 	
-	!! Write density profile for atosphere to file
-	dh = high/1000.0D0
-	DO i=1,1000
-		h = i*dh
-		CALL kras_mars_density( 44, h, Den_CO2 )
- 		CALL kras_mars_density( 1,  h, Den_H   )
- 		CALL kras_mars_density( 16, h, Den_O   )
- 		CALL kras_mars_density( 4,  h, Den_He  )
-	END DO
-
 	!! Init counters
 	Planet_Energy = 0.0D0
 	Escape_Energy = 0.0D0

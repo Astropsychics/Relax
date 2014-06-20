@@ -16,7 +16,7 @@ subroutine mars_ena_trans
 
 	ATMOSPHERE = 0 
 	WRITE(*,*) 'CALCULATING MARS ENA PRODUCTION with atmosphere model: ', ATMOSPHERE
-	CALL read_mars_density
+	CALL read_density
 
 	n  	  = 1000			!! number of altitude bins
 	alt_l = 60.0d3		!! low altitude limit

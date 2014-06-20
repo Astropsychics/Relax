@@ -65,7 +65,6 @@ SUBROUTINE planet_onestep_3d
 
 	!! Read in planetary inputs
 	CALL read_planet_inputs
-
 	!! Read Mars electron density tables
 !	CALL read_e_den_table
 
@@ -77,8 +76,9 @@ SUBROUTINE planet_onestep_3d
 !	CALL write_qm_tcs
 
 	!! read density table for atmosphere
-	CALL read_mars_density
+	CALL read_density
 !  CALL test_mars_table_density
+!  CALL test_venus_table_density
 
 	!! Read in ENA starting location tables
 	IF (DO_Escape_MC .EQ. 1) THEN
@@ -353,7 +353,11 @@ SUBROUTINE planet_onestep_3d
 	CALL clean_uni_tcs_tables
 
 	!! Free density tables
-	CALL clean_mars_density
+	IF (ATMOSPHERE .NE. 99) THEN
+		CALL clean_mars_density
+	ELSE IF (VENUS_ATMOSPHERE .NE. 99) THEN
+		CALL clean_venus_density
+	END IF
 
 	!@@@@@@@@@@@@
 	CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )			

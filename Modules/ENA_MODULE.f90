@@ -41,7 +41,7 @@ SUBROUTINE read_ENA_prod_height_table
 		IF ( TRIM(Proj) .EQ. 'H' ) THEN
 			IF ( ATMOSPHERE .EQ. 0 ) THEN
 				OPEN(UNIT=55,FILE='../Tables/H_Min_Production_Height.dat',STATUS='old',ACTION='read')
-			ELSE IF ( ATMOSPHERE .EQ. 1 ) THEN
+			ELSE IF ( ATMOSPHERE .EQ. 1 .OR. ATMOSPHERE .EQ. 99 ) THEN
 				OPEN(UNIT=55,FILE='../Tables/H_Mean_Production_Height.dat',STATUS='old',ACTION='read')
 			ELSE IF ( ATMOSPHERE .EQ. 2 ) THEN
 				OPEN(UNIT=55,FILE='../Tables/H_Max_Production_Height.dat',STATUS='old',ACTION='read')
@@ -49,7 +49,7 @@ SUBROUTINE read_ENA_prod_height_table
 		ELSE IF ( TRIM(Proj) .EQ. 'He' .OR. TRIM(Proj) .EQ. 'O' .OR. TRIM(Proj) .EQ. 'H2O' ) THEN
 			IF ( ATMOSPHERE .EQ. 0 ) THEN
 				OPEN(UNIT=55,FILE='../Tables/He_Min_Production_Height.dat',STATUS='old',ACTION='read')
-			ELSE IF ( ATMOSPHERE .EQ. 1 ) THEN
+			ELSE IF ( ATMOSPHERE .EQ. 1 .OR. ATMOSPHERE .EQ. 99 ) THEN
 				OPEN(UNIT=55,FILE='../Tables/He_Mean_Production_Height.dat',STATUS='old',ACTION='read')
 			ELSE IF ( ATMOSPHERE .EQ. 2 ) THEN
 				OPEN(UNIT=55,FILE='../Tables/He_Max_Production_Height.dat',STATUS='old',ACTION='read')

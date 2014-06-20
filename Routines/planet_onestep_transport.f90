@@ -43,24 +43,30 @@ SUBROUTINE planet_onestep_transport( E0, x0, y0, z0, ux0, uy0, uz0, t0, p0, SHA_
 
 	!! Internal
 	REAL(KIND=8),DIMENSION(3)	:: x_now, u_now, u_targ, u_nxt, x_nxt, dum_x
-	REAL(KIND=8),DIMENSION(8)	:: Prob_Targ
+	REAL(KIND=8),DIMENSION(9)	:: Prob_Targ
 	REAL(KIND=8)							:: lfg
 	REAL(KIND=8)							:: theta_now, phi_now, elec_den, HpHTCS
 	REAL(KIND=8)							:: theta_prev, phi_prev, E_now, E_nxt, E_targ
 	REAL(KIND=8)							:: HCO2_TCS, HeH_TCS, HeO_TCS, HeHe_TCS
 	REAL(KIND=8)							:: TCS_X_CO2, TCS_X_CO, TCS_X_H2, TCS_X_N2 
 	REAL(KIND=8)							:: TCS_X_O, TCS_X_He, TCS_X_H, TCS_X_Ar 
+	REAL(KIND=8)							:: TCS_X_O2, TCS_X_S, TCS_X_N, TCS_X_SO 
+	REAL(KIND=8)							:: TCS_X_SO2 
+	REAL(KIND=8)							:: Den_SO2, Den_O2, Den_N, Den_SO, Den_S
 	REAL(KIND=8)							:: Den_CO2, Den_H2, Den_N2, Den_CO
 	REAL(KIND=8)							:: Den_H, Den_O, Den_He, Den_Ar, Den_Tot
+	REAL(KIND=8)							:: MFP_X_SO2, MFP_X_SO, MFP_X_O2,MFP_X_N 
+	REAL(KIND=8)							:: MFP_X_S
 	REAL(KIND=8)							:: MFP_X_CO2, MFP_X_CO, MFP_X_H2, MFP_X_N2 
 	REAL(KIND=8)							:: MFP_X_O, MFP_X_He, MFP_X_H, MFP_X_Ar, MFP 
 	REAL(KIND=8)							:: MR_CO2, MR_CO, MR_H2, MR_N2, phi
 	REAL(KIND=8)							:: MR_O, MR_He, MR_H, MR_Ar
+	REAL(KIND=8)							:: MR_O2, MR_S, MR_N, MR_SO, MR_SO2
 	REAL(KIND=8)							:: P_Tot, rand_targ, Theta_targ, Phi_targ
 	REAL(KIND=8)							:: C1, r, dL, Length, ScattAng, Lab_ScattAng
 	REAL(KIND=8)							:: dE, U_tot, velocity, gravity, Target_Theta
 	REAL(KIND=8)							:: Target_Phi, r_theta, r_phi, Target_ux0
-	REAL(KIND=8)							:: Target_uy0, Target_uz0, dum_dx
+	REAL(KIND=8)							:: pp9, Target_uy0, Target_uz0, dum_dx
 	REAL(KIND=8)							:: pp1, pp2, pp3, pp4, pp5, pp6, pp7, pp8
 	INTEGER										:: N_Coll, Transport, GET_TCS	
 	INTEGER										:: i, j, xyz, NOW, ii, jj
@@ -94,34 +100,70 @@ SUBROUTINE planet_onestep_transport( E0, x0, y0, z0, ux0, uy0, uz0, t0, p0, SHA_
 	!! Find total cross section [m^2] if energy has changed 
 	IF ( GET_TCS .EQ. 1) THEN
 		IF (CM_TYPE .EQ. 'QM') THEN	
-			CALL get_qm_tcs(E_now,TCS_X_CO2,TCS_X_CO,TCS_X_N2,TCS_X_H2,TCS_X_O,TCS_X_Ar,TCS_X_He,TCS_X_H)
+			IF (ATMOSPHERE .NE. 99) THEN
+				CALL get_qm_tcs(E_now,TCS_X_CO2,TCS_X_CO,TCS_X_N2,TCS_X_H2,TCS_X_O,TCS_X_Ar,TCS_X_He,TCS_X_H)
+			ELSE IF (VENUS_ATMOSPHERE .NE. 99) THEN
+				CALL get_qm_tcs_venus(E_now,TCS_X_H,TCS_X_N,TCS_X_O,TCS_X_S,TCS_X_O2,TCS_X_CO,TCS_X_CO2,TCS_X_SO,TCS_X_SO2)
+			END IF ! atmosphere
 		ELSE IF (CM_TYPE .EQ. 'HS') THEN
+			IF (ATMOSPHERE .NE. 99) THEN
 			CALL get_hs_tcs(TCS_X_CO2,TCS_X_CO,TCS_X_N2,TCS_X_H2,TCS_X_O,TCS_X_Ar,TCS_X_He,TCS_X_H)
+			ELSE IF (VENUS_ATMOSPHERE .NE. 99) THEN
+				CALL get_hs_tcs_venus(TCS_X_H,TCS_X_N,TCS_X_O,TCS_X_S,TCS_X_O2,TCS_X_CO,TCS_X_CO2,TCS_X_SO,TCS_X_SO2)
+			END IF ! atmosphere
 		END IF ! HS or QM TCS
 	END IF ! if GET_TCS
-	
-	CALL mars_table_density( 'H  ', x_now(3), Den_H   )
-	CALL mars_table_density( 'He ', x_now(3), Den_He  )
-	CALL mars_table_density( 'O  ', x_now(3), Den_O   )
-	CALL mars_table_density( 'Ar ', x_now(3), Den_Ar  )
-	CALL mars_table_density( 'H2 ', x_now(3), Den_H2  )
-	CALL mars_table_density( 'N2 ', x_now(3), Den_N2  )
-	CALL mars_table_density( 'CO ', x_now(3), Den_CO  )
-	CALL mars_table_density( 'CO2', x_now(3), Den_CO2 )
 
-	MFP_X_CO2 = Den_CO2 *TCS_X_CO2
-	MFP_X_CO  = Den_CO  *TCS_X_CO
-	MFP_X_H2  = Den_H2  *TCS_X_H2
-	MFP_X_N2  = Den_N2  *TCS_X_N2
-	MFP_X_O   = Den_O   *TCS_X_O
-	MFP_X_He  = Den_He  *TCS_X_He
-	MFP_X_Ar  = Den_Ar  *TCS_X_Ar
-	MFP_X_H   = Den_H   *TCS_X_H
+	IF (ATMOSPHERE .NE. 99) THEN
+		CALL mars_table_density( 'H  ', x_now(3), Den_H   )
+		CALL mars_table_density( 'He ', x_now(3), Den_He  )
+		CALL mars_table_density( 'O  ', x_now(3), Den_O   )
+		CALL mars_table_density( 'Ar ', x_now(3), Den_Ar  )
+		CALL mars_table_density( 'H2 ', x_now(3), Den_H2  )
+		CALL mars_table_density( 'N2 ', x_now(3), Den_N2  )
+		CALL mars_table_density( 'CO ', x_now(3), Den_CO  )
+		CALL mars_table_density( 'CO2', x_now(3), Den_CO2 )
 
-	Den_Tot = Den_CO2 + Den_H + Den_O + Den_He + Den_CO + Den_H2 + Den_N2 + Den_Ar
+		MFP_X_CO2 = Den_CO2 *TCS_X_CO2
+		MFP_X_CO  = Den_CO  *TCS_X_CO
+		MFP_X_H2  = Den_H2  *TCS_X_H2
+		MFP_X_N2  = Den_N2  *TCS_X_N2
+		MFP_X_O   = Den_O   *TCS_X_O
+		MFP_X_He  = Den_He  *TCS_X_He
+		MFP_X_Ar  = Den_Ar  *TCS_X_Ar
+		MFP_X_H   = Den_H   *TCS_X_H
 
-	!! Total mean free path for all target species
-	MFP = 1.0D0/(MFP_X_CO2+MFP_X_CO+MFP_X_N2+MFP_X_H2+MFP_X_O+MFP_X_Ar+MFP_X_He+MFP_X_H)
+		Den_Tot = Den_CO2 + Den_H + Den_O + Den_He + Den_CO + Den_H2 + Den_N2 + Den_Ar
+
+		!! Total mean free path for all target species
+		MFP = 1.0D0/(MFP_X_CO2+MFP_X_CO+MFP_X_N2+MFP_X_H2+MFP_X_O+MFP_X_Ar+MFP_X_He+MFP_X_H)
+
+	ELSE IF (VENUS_ATMOSPHERE .NE. 99) THEN
+		CALL venus_table_density( 'H  ', x_now(3), Den_H   )
+		CALL venus_table_density( 'O  ', x_now(3), Den_O  )
+		CALL venus_table_density( 'N  ', x_now(3), Den_N   )
+		CALL venus_table_density( 'S  ', x_now(3), Den_S  )
+		CALL venus_table_density( 'O2 ', x_now(3), Den_O2  )
+		CALL venus_table_density( 'CO ', x_now(3), Den_CO  )
+		CALL venus_table_density( 'CO2', x_now(3), Den_CO2  )
+		CALL venus_table_density( 'SO ', x_now(3), Den_SO )
+		CALL venus_table_density( 'SO2', x_now(3), Den_SO2 )
+
+		MFP_X_CO2 = Den_CO2 *TCS_X_CO2
+		MFP_X_CO  = Den_CO  *TCS_X_CO
+		MFP_X_O2  = Den_O2  *TCS_X_O2
+		MFP_X_N   = Den_N  *TCS_X_N
+		MFP_X_O   = Den_O   *TCS_X_O
+		MFP_X_SO  = Den_SO  *TCS_X_SO
+		MFP_X_SO2 = Den_SO2  *TCS_X_SO2
+		MFP_X_H   = Den_H   *TCS_X_H
+		MFP_X_S   = Den_S   *TCS_X_S
+
+		Den_Tot = Den_CO2 + Den_H + Den_O + Den_O2 + Den_CO + Den_SO + Den_N + Den_SO2 + Den_S
+
+		!! Total mean free path for all target species
+		MFP = 1.0D0/(MFP_X_CO2+MFP_X_CO+MFP_X_N+MFP_X_H+MFP_X_O+MFP_X_SO+MFP_X_SO2+MFP_X_H+MFP_X_S)
+	END IF ! atmosphere
 
 	!! if 20% of mfp is less than 1km, use that as steplength
 	IF (0.2D0*MFP .LT. 1.0D3) THEN
@@ -146,69 +188,141 @@ SUBROUTINE planet_onestep_transport( E0, x0, y0, z0, ux0, uy0, uz0, t0, p0, SHA_
 		dt = Length/velocity
 
 		!! Find mixing ratios for target species at collision altitude
-		MR_CO2 = Den_CO2/Den_Tot
-		MR_CO  = Den_CO /Den_Tot
-		MR_He  = Den_He /Den_Tot
-		MR_Ar  = Den_Ar /Den_Tot
-		MR_H   = Den_H  /Den_Tot
-		MR_H2  = Den_H2 /Den_Tot
-		MR_N2  = Den_N2 /Den_Tot
-		MR_O   = Den_O  /Den_Tot
+		IF (ATMOSPHERE .NE. 99) THEN
+			MR_CO2 = Den_CO2/Den_Tot
+			MR_CO  = Den_CO /Den_Tot
+			MR_He  = Den_He /Den_Tot
+			MR_Ar  = Den_Ar /Den_Tot
+			MR_H   = Den_H  /Den_Tot
+			MR_H2  = Den_H2 /Den_Tot
+			MR_N2  = Den_N2 /Den_Tot
+			MR_O   = Den_O  /Den_Tot
+			!! Find probability array for target species collisions 
+			pp1 		= MR_CO2*TCS_X_CO2 
+			pp2 		= MR_CO*TCS_X_CO 
+			pp3 		= MR_H2*TCS_X_H2 
+			pp4 		= MR_N2*TCS_X_N2 
+			pp5 		= MR_O*TCS_X_O 
+			pp6 		= MR_He*TCS_X_He 
+			pp7 		= MR_Ar*TCS_X_Ar 
+			pp8 		= MR_H*TCS_X_H
+			P_Tot 	= pp1 + pp2 + pp3 + pp4 + pp5 + pp6 + pp7 + pp8
+			Prob_Targ(1) = pp1/P_Tot
+			Prob_Targ(2) = Prob_Targ(1) + pp2/P_Tot
+			Prob_Targ(3) = Prob_Targ(2) + pp3/P_Tot
+			Prob_Targ(4) = Prob_Targ(3) + pp4/P_Tot
+			Prob_Targ(5) = Prob_Targ(4) + pp5/P_Tot
+			Prob_Targ(6) = Prob_Targ(5) + pp6/P_Tot
+			Prob_Targ(7) = Prob_Targ(6) + pp7/P_Tot
+			Prob_Targ(8) = Prob_Targ(7) + pp8/P_Tot
+			!! Find random target atom
+			rand_targ = lfg()
+			IF (rand_targ .LT. Prob_Targ(1)) THEN
+				!! Target is CO2
+				Targ = 'CO2'
+				atom = 2
+			ELSE IF ( (rand_targ .GT. Prob_Targ(1)) .AND. (rand_targ .LT. Prob_Targ(2)) ) THEN
+				!! Target is CO
+				Targ = 'CO '
+				atom = 2
+			ELSE IF ( (rand_targ .GT. Prob_Targ(2)) .AND. (rand_targ .LT. Prob_Targ(3)) ) THEN
+				!! Target is H2
+				Targ = 'H2 '
+				atom = 2
+			ELSE IF ( (rand_targ .GT. Prob_Targ(3)) .AND. (rand_targ .LT. Prob_Targ(4)) ) THEN
+				!! Target is N2 
+				Targ = 'N2 '
+				atom = 2
+			ELSE IF ( (rand_targ .GT. Prob_Targ(4)) .AND. (rand_targ .LT. Prob_Targ(5)) ) THEN
+				!! Target is O
+				Targ = 'O  '
+				atom = 1 
+			ELSE IF ( (rand_targ .GT. Prob_Targ(5)) .AND. (rand_targ .LT. Prob_Targ(6)) ) THEN
+				!! Target is He 
+				Targ = 'He '
+				atom = 1 
+			ELSE IF ( (rand_targ .GT. Prob_Targ(6)) .AND. (rand_targ .LT. Prob_Targ(7)) ) THEN
+				!! Target is Ar 
+				Targ = 'Ar '
+				atom = 1 
+			ELSE IF ( (rand_targ .GT. Prob_Targ(7)) .AND. (rand_targ .LT. Prob_Targ(8)) ) THEN
+				!! Target is H 
+				Targ = 'H  '
+				atom = 1 
+			END IF
+		ELSE IF (VENUS_ATMOSPHERE .NE. 99) THEN
+			MR_CO2 = Den_CO2/Den_Tot
+			MR_CO  = Den_CO /Den_Tot
+			MR_SO  = Den_SO /Den_Tot
+			MR_SO2 = Den_SO2/Den_Tot
+			MR_H   = Den_H  /Den_Tot
+			MR_O2  = Den_O2 /Den_Tot
+			MR_N   = Den_N  /Den_Tot
+			MR_O   = Den_O  /Den_Tot
+			MR_S   = Den_S  /Den_Tot
+			!! Find probability array for target species collisions 
+			pp1 		= MR_CO2*TCS_X_CO2 
+			pp2 		= MR_CO*TCS_X_CO 
+			pp3 		= MR_O2*TCS_X_O2 
+			pp4 		= MR_N*TCS_X_N
+			pp5 		= MR_O*TCS_X_O 
+			pp6 		= MR_SO*TCS_X_SO
+			pp7 		= MR_SO2*TCS_X_SO2
+			pp8 		= MR_H*TCS_X_H
+			pp9 		= MR_S*TCS_X_S
+			P_Tot 	= pp1 + pp2 + pp3 + pp4 + pp5 + pp6 + pp7 + pp8 + pp9
+			Prob_Targ(1) = pp1/P_Tot
+			Prob_Targ(2) = Prob_Targ(1) + pp2/P_Tot
+			Prob_Targ(3) = Prob_Targ(2) + pp3/P_Tot
+			Prob_Targ(4) = Prob_Targ(3) + pp4/P_Tot
+			Prob_Targ(5) = Prob_Targ(4) + pp5/P_Tot
+			Prob_Targ(6) = Prob_Targ(5) + pp6/P_Tot
+			Prob_Targ(7) = Prob_Targ(6) + pp7/P_Tot
+			Prob_Targ(8) = Prob_Targ(7) + pp8/P_Tot
+			Prob_Targ(9) = Prob_Targ(8) + pp9/P_Tot
+!			WRITE(*,*) PROB_Targ
+			!! Find random target atom
+			rand_targ = lfg()
+			IF (rand_targ .LT. Prob_Targ(1)) THEN
+				!! Target is CO2
+				Targ = 'CO2'
+				atom = 2
+			ELSE IF ( (rand_targ .GT. Prob_Targ(1)) .AND. (rand_targ .LT. Prob_Targ(2)) ) THEN
+				!! Target is CO
+				Targ = 'CO '
+				atom = 2
+			ELSE IF ( (rand_targ .GT. Prob_Targ(2)) .AND. (rand_targ .LT. Prob_Targ(3)) ) THEN
+				!! Target is O2
+				Targ = 'O2 '
+				atom = 2
+			ELSE IF ( (rand_targ .GT. Prob_Targ(3)) .AND. (rand_targ .LT. Prob_Targ(4)) ) THEN
+				!! Target is N 
+				Targ = 'N  '
+				atom = 1 
+			ELSE IF ( (rand_targ .GT. Prob_Targ(4)) .AND. (rand_targ .LT. Prob_Targ(5)) ) THEN
+				!! Target is O
+				Targ = 'O  '
+				atom = 1 
+			ELSE IF ( (rand_targ .GT. Prob_Targ(5)) .AND. (rand_targ .LT. Prob_Targ(6)) ) THEN
+				!! Target is SO
+				Targ = 'SO '
+				atom = 2 
+			ELSE IF ( (rand_targ .GT. Prob_Targ(6)) .AND. (rand_targ .LT. Prob_Targ(7)) ) THEN
+				!! Target is SO2
+				Targ = 'SO2'
+				atom = 2 
+			ELSE IF ( (rand_targ .GT. Prob_Targ(7)) .AND. (rand_targ .LT. Prob_Targ(8)) ) THEN
+				!! Target is H 
+				Targ = 'H  '
+				atom = 1 
+			ELSE IF ( (rand_targ .GT. Prob_Targ(8)) .AND. (rand_targ .LT. Prob_Targ(9)) ) THEN
+				!! Target is H 
+				Targ = 'S  '
+				atom = 1 
+			END IF
+		END IF ! atmosphere
 
-		!! Find probability array for target species collisions 
-		pp1 		= MR_CO2*TCS_X_CO2 
-		pp2 		= MR_CO*TCS_X_CO 
-		pp3 		= MR_H2*TCS_X_H2 
-		pp4 		= MR_N2*TCS_X_N2 
-		pp5 		= MR_O*TCS_X_O 
-		pp6 		= MR_He*TCS_X_He 
-		pp7 		= MR_Ar*TCS_X_Ar 
-		pp8 		= MR_H*TCS_X_H
-		P_Tot 	= pp1 + pp2 + pp3 + pp4 + pp5 + pp6 + pp7 + pp8
-		Prob_Targ(1) = pp1/P_Tot
-		Prob_Targ(2) = Prob_Targ(1) + pp2/P_Tot
-		Prob_Targ(3) = Prob_Targ(2) + pp3/P_Tot
-		Prob_Targ(4) = Prob_Targ(3) + pp4/P_Tot
-		Prob_Targ(5) = Prob_Targ(4) + pp5/P_Tot
-		Prob_Targ(6) = Prob_Targ(5) + pp6/P_Tot
-		Prob_Targ(7) = Prob_Targ(6) + pp7/P_Tot
-		Prob_Targ(8) = Prob_Targ(7) + pp8/P_Tot
-
-		!! Find random target atom
-		rand_targ = lfg()
-		IF (rand_targ .LT. Prob_Targ(1)) THEN
-			!! Target is CO2
-			Targ = 'CO2'
-			atom = 2
-		ELSE IF ( (rand_targ .GT. Prob_Targ(1)) .AND. (rand_targ .LT. Prob_Targ(2)) ) THEN
-			!! Target is CO
-			Targ = 'CO '
-			atom = 2
-		ELSE IF ( (rand_targ .GT. Prob_Targ(2)) .AND. (rand_targ .LT. Prob_Targ(3)) ) THEN
-			!! Target is H2
-			Targ = 'H2 '
-			atom = 2
-		ELSE IF ( (rand_targ .GT. Prob_Targ(3)) .AND. (rand_targ .LT. Prob_Targ(4)) ) THEN
-			!! Target is N2 
-			Targ = 'N2 '
-			atom = 2
-		ELSE IF ( (rand_targ .GT. Prob_Targ(4)) .AND. (rand_targ .LT. Prob_Targ(5)) ) THEN
-			!! Target is O
-			Targ = 'O  '
-			atom = 1 
-		ELSE IF ( (rand_targ .GT. Prob_Targ(5)) .AND. (rand_targ .LT. Prob_Targ(6)) ) THEN
-			!! Target is He 
-			Targ = 'He '
-			atom = 1 
-		ELSE IF ( (rand_targ .GT. Prob_Targ(6)) .AND. (rand_targ .LT. Prob_Targ(7)) ) THEN
-			!! Target is Ar 
-			Targ = 'Ar '
-			atom = 1 
-		ELSE IF ( (rand_targ .GT. Prob_Targ(7)) .AND. (rand_targ .LT. Prob_Targ(8)) ) THEN
-			!! Target is H 
-			Targ = 'H  '
-			atom = 1 
-		END IF
+!		WRITE(*,*) 'FINAL++ Proj: ', Proj, 'Targ: ', Targ
 
 		!! Find mass of target atom Mp and Mt
 		CALL mass_finder
@@ -242,6 +356,16 @@ SUBROUTINE planet_onestep_transport( E0, x0, y0, z0, ux0, uy0, uz0, t0, p0, SHA_
 					CALL lin_rand_angle( E_now, 'HCO   ', ScattAng )
 				ELSE IF (TRIM(Targ) .EQ. 'CO2') THEN
 					CALL lin_rand_angle( E_now, 'HCO2  ', ScattAng )
+				ELSE IF (TRIM(Targ) .EQ. 'SO2') THEN
+					CALL lin_rand_angle( E_now, 'HSO2  ', ScattAng )
+				ELSE IF (TRIM(Targ) .EQ. 'SO') THEN
+					CALL lin_rand_angle( E_now, 'HSO   ', ScattAng )
+				ELSE IF (TRIM(Targ) .EQ. 'S') THEN
+					CALL lin_rand_angle( E_now, 'HS    ', ScattAng )
+				ELSE IF (TRIM(Targ) .EQ. 'O2') THEN
+					CALL lin_rand_angle( E_now, 'HO2   ', ScattAng )
+				ELSE IF (TRIM(Targ) .EQ. 'N') THEN
+					CALL lin_rand_angle( E_now, 'HN    ', ScattAng )
 				END IF
 			ELSE IF (TRIM(PROJ) .EQ. 'He') THEN
 				IF (TRIM(Targ) .EQ. 'H') THEN
@@ -260,6 +384,16 @@ SUBROUTINE planet_onestep_transport( E0, x0, y0, z0, ux0, uy0, uz0, t0, p0, SHA_
 					CALL lin_rand_angle( E_now, 'HeCO  ', ScattAng )
 				ELSE IF (TRIM(Targ) .EQ. 'CO2') THEN
 					CALL lin_rand_angle( E_now, 'HeCO2 ', ScattAng )
+				ELSE IF (TRIM(Targ) .EQ. 'SO2') THEN
+					CALL lin_rand_angle( E_now, 'HeSO2 ', ScattAng )
+				ELSE IF (TRIM(Targ) .EQ. 'SO') THEN
+					CALL lin_rand_angle( E_now, 'HeSO  ', ScattAng )
+				ELSE IF (TRIM(Targ) .EQ. 'S') THEN
+					CALL lin_rand_angle( E_now, 'HeS   ', ScattAng )
+				ELSE IF (TRIM(Targ) .EQ. 'O2') THEN
+					CALL lin_rand_angle( E_now, 'HeO2  ', ScattAng )
+				ELSE IF (TRIM(Targ) .EQ. 'N') THEN
+					CALL lin_rand_angle( E_now, 'HeN   ', ScattAng )
 				END IF
 			ELSE IF (TRIM(PROJ) .EQ. 'O') THEN
 				IF (TRIM(Targ) .EQ. 'H') THEN
@@ -346,7 +480,7 @@ SUBROUTINE planet_onestep_transport( E0, x0, y0, z0, ux0, uy0, uz0, t0, p0, SHA_
 			ELSE IF (TRIM(Targ) .EQ. 'CO2') THEN
 				C_SHA_H_Ux_CO2(ii,jj) = C_SHA_H_Ux_CO2(ii,jj) + 1.0D0/N_Part	
 			ELSE
-				WRITE(*,*) 'UNKNOWN TARGET IN H vs Uz SHA, TARGET: ', Targ
+!				WRITE(*,*) 'UNKNOWN TARGET IN H vs Uz SHA, TARGET: ', Targ
 			END IF
 		END IF ! write_sha_H_UX on
 
@@ -384,7 +518,7 @@ SUBROUTINE planet_onestep_transport( E0, x0, y0, z0, ux0, uy0, uz0, t0, p0, SHA_
 			ELSE IF (TRIM(Targ) .EQ. 'CO2') THEN
 				C_SHA_H_E_CO2(ii,jj) = C_SHA_H_E_CO2(ii,jj) + 1.0D0/N_Part
 			ELSE
-				WRITE(*,*) 'UNKNOWN TARGET IN H vs E SHA, TARGET: ', Targ
+!				WRITE(*,*) 'UNKNOWN TARGET IN H vs E SHA, TARGET: ', Targ
 			END IF
 		END IF ! write_sha_H_E on	
 
